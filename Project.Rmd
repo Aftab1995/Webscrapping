@@ -1,0 +1,92 @@
+---
+title: "Web Scrapping"
+author: "Aftab"
+date: "12/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#rm(list = ls())
+
+library(tidyverse)
+library(httr)
+library(jsonlite)
+library(rvest)
+library(data.table)
+library(kableExtra)
+library(modelsummary)
+library(esquisse)
+```
+
+```{r, echo=FALSE}
+# Data taken from NASA API for near objects around the Earth
+
+base_url <- 'https://api.nasa.gov/neo/rest/v1/feed?start_date=2015-09-07&end_date=2015-09-08&api_key=DEMO_KEY'
+
+key <- "thZnhbv5oAqVhnlLco3GSKnhuFZFcyAmMU4860I4"
+
+```
+
+```{r, echo=FALSE}
+# getting weekly dates since the API only allows for extraction of weekly data
+
+start_dates <- seq(as.Date("2020-01-01"), as.Date("2020-12-24"), by="weeks")
+end_dates <- seq(as.Date("2020-01-08"), as.Date("2020-12-31"), by="weeks")
+
+```
+
+```{r, echo=FALSE}
+# Function to pull API data
+
+API_urls <- paste0('https://api.nasa.gov/neo/rest/v1/feed?start_date=',start_dates,'&end_date=',end_dates,'&api_key=',key)
+
+get_API_data <- function(API) {
+  raw_data <- GET(API)
+  
+  weekly <- fromJSON(rawToChar(raw_data$content), flatten = TRUE)
+  
+  # extracting and binding data
+  for (i in 1:7) {
+    weekly_clean <- weekly$near_earth_objects[[i]]
+    weekly_clean <- rbind(weekly_clean,weekly$near_earth_objects[[i]])
+  }
+  return(weekly_clean)
+}
+
+list_of_dfs <- lapply(API_urls, get_API_data)
+
+final_df <- rbindlist(list_of_dfs)
+
+```
+
+```{r}
+
+# Extracting the data in the list "close_approach_data"
+inner_data <- rbind(final_df$close_approach_data[[1]])
+
+for (i in 2:nrow(final_df)) {
+  inner_data <- rbind(inner_data,final_df$close_approach_data[[i]])
+}
+
+```
+
+```{r}
+# Combining the extracted "close_approach_data" and "final_df"
+
+final_df <- cbind(final_df,inner_data)
+
+#Dropping the "close_approach_data" list from the "final_df"
+
+final_df$close_approach_data <- NULL
+
+# Dropping the "inner_data table" and "list_of_dfs" as they are not needed anymore
+
+rm(inner_data)
+rm(list_of_dfs)
+
+```
+
